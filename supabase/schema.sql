@@ -50,3 +50,20 @@ create table if not exists agent_runs (
   output text,
   created_at timestamptz not null default now()
 );
+
+-- Auto-generated outreach emails (drafted, never sent automatically)
+create table if not exists outreach (
+  id uuid primary key default gen_random_uuid(),
+  lead_id uuid references leads(id) on delete cascade,
+  subject text,
+  body text,
+  status text not null default 'draft',
+  created_at timestamptz not null default now()
+);
+
+-- Dedupe: job postings already scanned by the sourcing pipeline
+create table if not exists scanned_jobs (
+  id uuid primary key default gen_random_uuid(),
+  job_url text not null unique,
+  created_at timestamptz not null default now()
+);

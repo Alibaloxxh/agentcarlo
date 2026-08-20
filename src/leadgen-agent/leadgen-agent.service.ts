@@ -10,15 +10,19 @@ export class LeadGenAgentService {
     private readonly supabase: SupabaseService,
   ) {}
 
-  async evaluate(source: string, text: string): Promise<any> {
-    if (!text) {
-      throw new Error('text is required');
-    }
+  async scoreRaw(source: string, text: string): Promise<any> {
     const raw = await this.groq.complete(
       LEAD_PROMPT,
       `Source: ${source || 'manual'}\nLead text: ${text}`,
     );
-    const parsed = extractJson(raw);
+    return extractJson(raw);
+  }
+
+  async evaluate(source: string, text: string): Promise<any> {
+    if (!text) {
+      throw new Error('text is required');
+    }
+    const parsed = await this.scoreRaw(source, text);
 
     const { data, error } = await this.supabase
       .getClient()

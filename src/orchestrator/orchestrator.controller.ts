@@ -2,6 +2,7 @@ import { Body, Controller, Post } from '@nestjs/common';
 import { ContentAgentService } from '../content-agent/content-agent.service';
 import { LeadGenAgentService } from '../leadgen-agent/leadgen-agent.service';
 import { XIntegrationService } from '../x-integration/x-integration.service';
+import { SourcingService } from '../sourcing/sourcing.service';
 
 @Controller('agent')
 export class OrchestratorController {
@@ -9,6 +10,7 @@ export class OrchestratorController {
     private readonly contentAgent: ContentAgentService,
     private readonly leadGenAgent: LeadGenAgentService,
     private readonly xIntegration: XIntegrationService,
+    private readonly sourcing: SourcingService,
   ) {}
 
   @Post('draft')
@@ -24,5 +26,10 @@ export class OrchestratorController {
   @Post('post-approved')
   async postApproved() {
     return this.xIntegration.postApproved();
+  }
+
+  @Post('scan-leads')
+  async scanLeads() {
+    return this.sourcing.scan();
   }
 }

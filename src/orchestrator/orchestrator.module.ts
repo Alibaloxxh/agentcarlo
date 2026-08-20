@@ -4,10 +4,11 @@ import { LeadGenAgentModule } from '../leadgen-agent/leadgen-agent.module';
 import { XIntegrationModule } from '../x-integration/x-integration.module';
 import { SourcingModule } from '../sourcing/sourcing.module';
 import { OutreachModule } from '../outreach/outreach.module';
+import { MailModule } from '../mail/mail.module';
 import { OrchestratorController } from './orchestrator.controller';
 
 @Module({
-  imports: [ContentAgentModule, LeadGenAgentModule, XIntegrationModule, SourcingModule, OutreachModule],
+  imports: [ContentAgentModule, LeadGenAgentModule, XIntegrationModule, SourcingModule, OutreachModule, MailModule],
   controllers: [OrchestratorController],
 })
 export class OrchestratorModule {}

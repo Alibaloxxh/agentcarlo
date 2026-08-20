@@ -1,9 +1,10 @@
-import { Body, Controller, Post } from '@nestjs/common';
+import { Body, Controller, Get, Post } from '@nestjs/common';
 import { ContentAgentService } from '../content-agent/content-agent.service';
 import { LeadGenAgentService } from '../leadgen-agent/leadgen-agent.service';
 import { XIntegrationService } from '../x-integration/x-integration.service';
 import { SourcingService } from '../sourcing/sourcing.service';
 import { OutreachService } from '../outreach/outreach.service';
+import { MailService } from '../mail/mail.service';
 
 @Controller('agent')
 export class OrchestratorController {
@@ -13,6 +14,7 @@ export class OrchestratorController {
     private readonly xIntegration: XIntegrationService,
     private readonly sourcing: SourcingService,
     private readonly outreach: OutreachService,
+    private readonly mail: MailService,
   ) {}
 
   @Post('draft')
@@ -38,5 +40,10 @@ export class OrchestratorController {
   @Post('send-outreach')
   async sendOutreach() {
     return this.outreach.sendPending();
+  }
+
+  @Get('smtp-test')
+  async smtpTest() {
+    return this.mail.diagnose();
   }
 }

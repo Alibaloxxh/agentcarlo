@@ -1,28 +1,35 @@
 import { Injectable } from '@nestjs/common';
 import * as nodemailer from 'nodemailer';
+import { GmailApiService } from './gmail-api.service';
 
 @Injectable()
 export class MailService {
-  private readonly transporter: nodemailer.Transporter;
+  private readonly transporter: nodemailer.Transporter | null = null;
+  private readonly gmailApi: GmailApiService;
 
-  constructor() {
+  constructor(gmailApi: GmailApiService) {
+    this.gmailApi = gmailApi;
     const user = process.env.GMAIL_USER;
     const pass = process.env.GMAIL_APP_PASSWORD;
-    if (!user || !pass) {
-      throw new Error('GMAIL_USER / GMAIL_APP_PASSWORD not set — check .env');
+    if (user && pass) {
+      this.transporter = nodemailer.createTransport({
+        host: 'smtp.gmail.com',
+        port: 587,
+        secure: false,
+        auth: { user, pass },
+        connectionTimeout: 10000,
+        greetingTimeout: 10000,
+        socketTimeout: 20000,
+      });
     }
-    this.transporter = nodemailer.createTransport({
-      host: 'smtp.gmail.com',
-      port: 587,
-      secure: false,
-      auth: { user, pass },
-      connectionTimeout: 10000,
-      greetingTimeout: 10000,
-      socketTimeout: 20000,
-    });
   }
 
   async send(to: string, subject: string, body: string): Promise<void> {
+    if (process.env.GMAIL_REFRESH_TOKEN) {
+      await this.gmailApi.send(to, subject, body);
+      return;
+    }
+    if (!this.transporter) throw new Error('No mail transport configured (GMAIL_USER/APP_PASSWORD or GMAIL_REFRESH_TOKEN)');
     const from = process.env.GMAIL_USER!;
     await this.transporter.sendMail({
       from,

@@ -12,7 +12,9 @@ export class MailService {
       throw new Error('GMAIL_USER / GMAIL_APP_PASSWORD not set — check .env');
     }
     this.transporter = nodemailer.createTransport({
-      service: 'gmail',
+      host: 'smtp.gmail.com',
+      port: 587,
+      secure: false,
       auth: { user, pass },
       connectionTimeout: 10000,
       greetingTimeout: 10000,

@@ -57,6 +57,7 @@ create table if not exists outreach (
   lead_id uuid references leads(id) on delete cascade,
   subject text,
   body text,
+  to_email text,
   status text not null default 'draft',
   created_at timestamptz not null default now()
 );

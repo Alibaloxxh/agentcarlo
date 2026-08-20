@@ -73,20 +73,38 @@ export class SourcingService {
       );
       const out = extractJson(outRaw);
 
+      const toEmail = await this.resolveCompanyEmail(job.url);
+
       await this.supabase
         .getClient()
         .from('outreach')
-        .insert({ lead_id: lead.id, subject: out.subject ?? '', body: out.body ?? '' });
+        .insert({
+          lead_id: lead.id,
+          subject: out.subject ?? '',
+          body: out.body ?? '',
+          to_email: toEmail ?? null,
+        });
 
       await this.supabase
         .getClient()
         .from('scanned_jobs')
         .insert({ job_url: job.url });
 
-      results.push({ lead_id: lead.id, project: lead.project_name, score: lead.score, subject: out.subject });
+      results.push({ lead_id: lead.id, project: lead.project_name, score: lead.score, subject: out.subject, to_email: toEmail ?? null });
     }
 
     return { scanned: jobs.length, matched: matches.length, processed: results.length, results };
+  }
+
+  private async resolveCompanyEmail(jobUrl: string): Promise<string | null> {
+    try {
+      const html = await fetch(jobUrl, { headers: { 'User-Agent': 'Mozilla/5.0' } }).then((r) => r.text());
+      const matches = html.match(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/g) ?? [];
+      const prefer = matches.find((e) => /careers?|jobs|hiring|hello|info|contact|team|recruit/i.test(e));
+      return prefer ?? matches[0] ?? null;
+    } catch {
+      return null;
+    }
   }
 
   private extractJobs(html: string): any[] {

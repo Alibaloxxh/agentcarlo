@@ -3,6 +3,7 @@ import { ContentAgentService } from '../content-agent/content-agent.service';
 import { LeadGenAgentService } from '../leadgen-agent/leadgen-agent.service';
 import { XIntegrationService } from '../x-integration/x-integration.service';
 import { SourcingService } from '../sourcing/sourcing.service';
+import { OutreachService } from '../outreach/outreach.service';
 
 @Controller('agent')
 export class OrchestratorController {
@@ -11,6 +12,7 @@ export class OrchestratorController {
     private readonly leadGenAgent: LeadGenAgentService,
     private readonly xIntegration: XIntegrationService,
     private readonly sourcing: SourcingService,
+    private readonly outreach: OutreachService,
   ) {}
 
   @Post('draft')
@@ -31,5 +33,10 @@ export class OrchestratorController {
   @Post('scan-leads')
   async scanLeads() {
     return this.sourcing.scan();
+  }
+
+  @Post('send-outreach')
+  async sendOutreach() {
+    return this.outreach.sendPending();
   }
 }

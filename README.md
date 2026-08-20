@@ -1,6 +1,6 @@
 # Agent (AgentCarlo)
 
-An AI agent system that handles personal-brand and lead generation — running autonomously, with humans staying in control of anything that goes out publicly.
+An AI agent system that handles personal-brand and lead generation — running autonomously.
 ---
 
 ## What it does

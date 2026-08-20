@@ -4,13 +4,15 @@ import { SourcingService } from './sourcing.service';
 import { TelegramService } from '../telegram/telegram.service';
 
 const SEARCH_TERMS = [
-  'solo founder looking for developer web3',
-  'need technical cofounder solana',
-  'early stage startup hiring react native developer',
-  'seeking full stack developer nestjs crypto startup',
-  'web3 startup need mobile app developer',
-  'founder looking for developer website app launch',
+  'solana startup "we are building" "hiring" developer full-stack',
+  'web3 company "join our team" react native mobile developer',
+  'crypto startup "now hiring" backend engineer website launch',
+  'startup "we are building" app "hiring" react developer website',
+  'solana project career page full-stack developer opening',
+  'web3 startup "we are looking for" developer join team mobile',
 ];
+
+const BLOCKLIST = /(reddit\.com|medium\.com|ycombinator\.com|facebook\.com|quora\.com|github\.com|linkedin\.com|youtube\.com|twitter\.com|x\.com|instagram\.com|tiktok\.com|discord\.com|telegram\.org|glassdoor\.com|indeed\.com|remoteok|weworkremotely|stackoverflow\.com|dev\.to|hackernews|news\.ycombinator)/i;
 
 const USER_AGENT = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)';
 const QUOTA_LIMIT = 2500;
@@ -67,8 +69,8 @@ export class SerperSearchService {
           const snippet = item.snippet ?? '';
           if (!title || !link) continue;
           const domain = this.extractDomain(link);
-          if (!domain) continue;
-          const hasBuyIntent = /(looking for|hiring|need.*developer|seeking|technical cofounder|co-founder)/i.test(`${title} ${snippet}`);
+          if (!domain || BLOCKLIST.test(link)) continue;
+          const hasBuyIntent = /(we are building|we're building|hiring|join our team|now hiring|we are looking for|we're looking for|careers|opening)/i.test(`${title} ${snippet}`);
           const isJobBoard = /(linkedin\.com\/jobs|indeed\.com|remoteok|weworkremotely|glassdoor)/i.test(link);
           if (isJobBoard || !hasBuyIntent) continue;
           candidates.push({ project: title.split('|')[0].trim(), domain, note: snippet.slice(0, 300) });

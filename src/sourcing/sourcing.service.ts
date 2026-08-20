@@ -3,6 +3,7 @@ import { SupabaseService } from '../supabase/supabase.service';
 import { LeadGenAgentService } from '../leadgen-agent/leadgen-agent.service';
 import { GroqService, extractJson } from '../common/groq.service';
 import { OUTREACH_PROMPT } from '../common/prompts';
+import { TelegramService } from '../telegram/telegram.service';
 
 const SOURCE_URL = 'https://jobs.solana.com/jobs';
 const STACK_KEYWORDS = [
@@ -26,6 +27,7 @@ export class SourcingService {
     private readonly supabase: SupabaseService,
     private readonly leadgen: LeadGenAgentService,
     private readonly groq: GroqService,
+    private readonly telegram: TelegramService,
   ) {}
 
   async scan(): Promise<any> {
@@ -91,6 +93,10 @@ export class SourcingService {
         .insert({ job_url: job.url });
 
       results.push({ lead_id: lead.id, project: lead.project_name, score: lead.score, subject: out.subject, to_email: toEmail ?? null });
+
+      await this.telegram.send(
+        `🆕 New lead: ${lead.project_name} (score ${lead.score}/10)\nWhat: ${parsed.what_they_need ?? job.title}\nContact: ${toEmail ?? job.url}`,
+      );
     }
 
     return { scanned: jobs.length, matched: matches.length, processed: results.length, results };

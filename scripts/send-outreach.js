@@ -14,6 +14,17 @@ const transporter = nodemailer.createTransport({
   socketTimeout: 20000,
 });
 
+async function tg(text) {
+  if (!process.env.TG_BOT_TOKEN || !process.env.TG_CHAT_ID) return;
+  try {
+    await fetch(`https://api.telegram.org/bot${process.env.TG_BOT_TOKEN}/sendMessage`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ chat_id: process.env.TG_CHAT_ID, text }),
+    });
+  } catch {}
+}
+
 async function main() {
   const { data, error } = await supabase
     .from('outreach')
@@ -37,9 +48,11 @@ async function main() {
       });
       await supabase.from('outreach').update({ status: 'sent' }).eq('id', row.id);
       console.log(`SENT ${row.to_email}`);
+      await tg(`✅ Email sent: ${row.subject} -> ${row.to_email}`);
     } catch (err) {
       await supabase.from('outreach').update({ status: 'failed' }).eq('id', row.id);
       console.log(`FAILED ${row.to_email}: ${err.message}`);
+      await tg(`❌ Email failed: ${row.subject} -> ${row.to_email} (${err.message})`);
     }
   }
 }

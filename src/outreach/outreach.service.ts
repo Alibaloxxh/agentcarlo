@@ -1,12 +1,14 @@
 import { Injectable } from '@nestjs/common';
 import { SupabaseService } from '../supabase/supabase.service';
 import { MailService } from '../mail/mail.service';
+import { TelegramService } from '../telegram/telegram.service';
 
 @Injectable()
 export class OutreachService {
   constructor(
     private readonly supabase: SupabaseService,
     private readonly mail: MailService,
+    private readonly telegram: TelegramService,
   ) {}
 
   async sendPending(): Promise<any[]> {
@@ -30,8 +32,10 @@ export class OutreachService {
           .update({ status: 'sent' })
           .eq('id', row.id);
         results.push({ id: row.id, to: row.to_email, status: 'sent' });
+        await this.telegram.send(`✅ Email sent: ${row.subject} -> ${row.to_email}`);
       } catch (err) {
         results.push({ id: row.id, to: row.to_email, status: 'failed', error: (err as Error).message });
+        await this.telegram.send(`❌ Email failed: ${row.subject} -> ${row.to_email} (${(err as Error).message})`);
       }
     }
     return results;

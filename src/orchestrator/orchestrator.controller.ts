@@ -44,6 +44,11 @@ export class OrchestratorController {
     return this.outreach.sendPending();
   }
 
+  @Post('hunt')
+  async hunt(@Body() body: { companies: Array<{ project: string; domain: string; note?: string }> }) {
+    return this.sourcing.hunt(body.companies ?? []);
+  }
+
   @Get('smtp-test')
   async smtpTest() {
     return this.mail.diagnose();

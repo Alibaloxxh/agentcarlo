@@ -44,6 +44,63 @@ export class SourcingService {
     private readonly telegram: TelegramService,
   ) {}
 
+  async hunt(companies: Array<{ project: string; domain: string; note?: string }>): Promise<any> {
+    const results = [];
+    for (const c of companies) {
+      const email = await this.resolveDomainEmail(c.domain);
+      const text = `Company: ${c.project}\nWebsite: https://${c.domain}\nContact email found: ${email ?? 'none published'}\nContext: ${c.note ?? 'Early-stage company needing web or mobile development.'}`;
+      const parsed = await this.leadgen.scoreRaw('web-search', text);
+
+      const { data: lead, error: leadErr } = await this.supabase
+        .getClient()
+        .from('leads')
+        .insert({
+          source: 'web-search',
+          raw_text: text,
+          project_name: parsed.project_name ?? c.project,
+          what_they_need: parsed.what_they_need ?? null,
+          score: parsed.score ?? null,
+          legitimacy: parsed.legitimacy ?? null,
+          budget_signal: parsed.budget_signal ?? null,
+          fit: parsed.fit ?? null,
+          red_flags: parsed.red_flags ?? null,
+          contact_path: `https://${c.domain}`,
+          pitch_angle: parsed.pitch_angle ?? null,
+          confidence: parsed.confidence ?? null,
+        })
+        .select()
+        .single();
+      if (leadErr) throw new Error(`Lead insert failed: ${leadErr.message}`);
+
+      if (email) {
+        const outRaw = await this.groq.complete(
+          OUTREACH_PROMPT,
+          `Company: ${c.project}\nDetails: ${text}\nFit notes from evaluation: ${parsed.fit ?? 'n/a'}`,
+        );
+        const out = extractJson(outRaw);
+        await this.supabase
+          .getClient()
+          .from('outreach')
+          .insert({
+            lead_id: lead.id,
+            subject: out.subject ?? '',
+            body: out.body ?? '',
+            to_email: email,
+          });
+      }
+
+      const isWorthNotifying = (parsed.score ?? 0) >= 6;
+      if (isWorthNotifying) {
+        await this.telegram.send(
+          `🆕 Founder lead: ${lead.project_name} (score ${lead.score}/10)\nWhat: ${parsed.what_they_need ?? 'web/mobile development'}\nEmail: ${email ?? 'not published'}\nSite: https://${c.domain}`,
+        );
+      }
+
+      results.push({ lead_id: lead.id, project: lead.project_name, score: lead.score, email, domain: c.domain });
+    }
+    return results;
+  }
+
   async scan(): Promise<any> {
     const jobs = await this.fetchAllJobs();
     const matches = jobs.filter((j) => this.matchesStack(j));
@@ -160,6 +217,22 @@ export class SourcingService {
         budget: p.budget ? `${p.budget.minimum}-${p.budget.maximum} ${p.currency?.code ?? ''}` : '',
         source: 'freelancer.com',
       }));
+  }
+
+  private async resolveDomainEmail(domain: string): Promise<string | null> {
+    const pages = [`https://${domain}`, `https://${domain}/contact`, `https://${domain}/contact-us`, `https://${domain}/about`];
+    for (const url of pages) {
+      try {
+        const html = await fetch(url, { headers: { 'User-Agent': 'Mozilla/5.0' }, signal: AbortSignal.timeout(10000) }).then((r) => r.text());
+        const matches = html.match(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/g) ?? [];
+        const clean = matches.filter((e) => !e.includes('.png') && !e.includes('.jpg') && !e.includes('.webp'));
+        const prefer = clean.find((e) => /hello|info|contact|team|founder|support|sales|careers/i.test(e)) ?? clean[0];
+        if (prefer) return prefer;
+      } catch {
+        // try next page
+      }
+    }
+    return null;
   }
 
   private async resolveCompanyEmail(jobUrl: string): Promise<string | null> {

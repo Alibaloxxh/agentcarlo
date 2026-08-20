@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AgentCarlo Dashboard</title>
+<style>
+  body { font-family: -apple-system, Segoe UI, Roboto, sans-serif; margin: 0; background: #0f1117; color: #e6e6e6; }
+  header { padding: 20px 24px; background: #161a24; border-bottom: 1px solid #262c3b; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; }
+  h1 { font-size: 20px; margin: 0; }
+  .stats { display: flex; gap: 12px; }
+  .stat { background: #1c2230; padding: 12px 20px; border-radius: 8px; }
+  .stat b { display: block; font-size: 24px; color: #4fc3f7; }
+  .stat span { font-size: 12px; color: #9aa4b5; }
+  main { padding: 24px; max-width: 1200px; margin: 0 auto; }
+  h2 { font-size: 16px; color: #9aa4b5; text-transform: uppercase; letter-spacing: .05em; margin: 32px 0 12px; }
+  table { width: 100%; border-collapse: collapse; background: #161a24; border-radius: 8px; overflow: hidden; font-size: 13px; }
+  th, td { text-align: left; padding: 10px 14px; border-bottom: 1px solid #232936; }
+  th { background: #1c2230; color: #9aa4b5; font-weight: 600; }
+  tr:hover td { background: #1a2029; }
+  .score { font-weight: 700; }
+  .s { color: #4caf50; } .d { color: #ffb74d; } .f { color: #f44336; }
+  .badge { padding: 2px 10px; border-radius: 10px; font-size: 11px; font-weight: 600; }
+  .badge.sent { background: #1b5e20; color: #81c784; }
+  .badge.draft { background: #5d4037; color: #ffcc80; }
+  .badge.failed { background: #7f0000; color: #ef9a9a; }
+  .key-input { display: flex; gap: 8px; align-items: center; }
+  input { background: #0f1117; border: 1px solid #2a3142; color: #e6e6e6; padding: 8px 12px; border-radius: 6px; }
+  button { background: #1e88e5; border: none; color: #fff; padding: 8px 16px; border-radius: 6px; cursor: pointer; font-weight: 600; }
+  .muted { color: #9aa4b5; font-size: 12px; }
+</style>
+</head>
+<body>
+<header>
+  <h1>AgentCarlo Dashboard</h1>
+  <div class="stats" id="stats"></div>
+  <div class="key-input">
+    <input id="key" type="password" placeholder="dashboard key (if set)">
+    <button onclick="load()">Refresh</button>
+  </div>
+</header>
+<main>
+  <h2>Outreach Emails</h2>
+  <div id="outreach"><p class="muted">Loading...</p></div>
+  <h2>Leads</h2>
+  <div id="leads"><p class="muted">Loading...</p></div>
+</main>
+<script>
+  let cacheKey = '';
+  function esc(s) { return String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+  async function load() {
+    cacheKey = document.getElementById('key').value.trim();
+    const qs = cacheKey ? '?key=' + encodeURIComponent(cacheKey) : '';
+    try {
+      const r = await fetch('/api/dashboard' + qs);
+      if (!r.ok) { throw new Error((await r.json()).message || 'HTTP ' + r.status); }
+      const d = await r.json();
+      render(d);
+    } catch (e) {
+      document.getElementById('outreach').innerHTML = '<p class="muted">Error: ' + esc(e.message) + '</p>';
+      document.getElementById('leads').innerHTML = '';
+    }
+  }
+  function render(d) {
+    document.getElementById('stats').innerHTML =
+      '<div class="stat"><b>' + d.stats.totalLeads + '</b><span>leads tracked</span></div>' +
+      '<div class="stat"><b>' + d.stats.sentEmails + '</b><span>emails sent</span></div>' +
+      '<div class="stat"><b>' + d.stats.totalScans + '</b><span>jobs scanned</span></div>';
+
+    const orows = (d.outreach || []).map(o =>
+      '<tr><td class="badge ' + esc(o.status) + '">' + esc(o.status) + '</td>' +
+      '<td>' + esc(o.leads?.project_name || '—') + '</td>' +
+      '<td>' + esc(o.to_email || '—') + '</td>' +
+      '<td>' + esc(o.subject) + '</td>' +
+      '<td class="s">' + (o.leads?.score ?? '—') + '</td>' +
+      '<td class="muted">' + esc((o.created_at || '').slice(0, 10)) + '</td></tr>'
+    ).join('');
+    document.getElementById('outreach').innerHTML =
+      '<table><tr><th>Status</th><th>Project</th><th>Email</th><th>Subject</th><th>Score</th><th>Date</th></tr>' + orows + '</table>';
+
+    const lrows = (d.leads || []).map(l =>
+      '<tr><td class="score">' + (l.score ?? '—') + '</td>' +
+      '<td>' + esc(l.project_name) + '</td>' +
+      '<td>' + esc(l.source || '—') + '</td>' +
+      '<td>' + esc(l.what_they_need || '—') + '</td>' +
+      '<td>' + esc(l.contact_path || '—') + '</td>' +
+      '<td class="muted">' + esc((l.created_at || '').slice(0, 10)) + '</td></tr>'
+    ).join('');
+    document.getElementById('leads').innerHTML =
+      '<table><tr><th>Score</th><th>Project</th><th>Source</th><th>Need</th><th>Contact</th><th>Date</th></tr>' + lrows + '</table>';
+  }
+  load();
+</script>
+</body>
+</html>

@@ -83,7 +83,9 @@ export class SourcingService {
       if (leadErr) throw new Error(`Lead insert failed: ${leadErr.message}`);
 
       let toEmail: string | null = null;
-      if (job.source === 'jobs.solana.com') {
+      const isBoard = job.source === 'jobs.solana.com';
+      const isWorthNotifying = (parsed.score ?? 0) >= 6;
+      if (isBoard) {
         const outRaw = await this.groq.complete(
           OUTREACH_PROMPT,
           `Job: ${job.title}\nCompany: ${job.company}\nDetails: ${text}\nFit notes from evaluation: ${parsed.fit ?? 'n/a'}`,
@@ -108,11 +110,13 @@ export class SourcingService {
         .from('scanned_jobs')
         .insert({ job_url: job.url });
 
-      results.push({ lead_id: lead.id, project: lead.project_name, score: lead.score, subject: job.source === 'jobs.solana.com' ? 'drafted' : 'bid-on-platform', to_email: toEmail ?? null, source: job.source });
+      results.push({ lead_id: lead.id, project: lead.project_name, score: lead.score, subject: isBoard ? 'drafted' : 'bid-on-platform', to_email: toEmail ?? null, source: job.source });
 
-      await this.telegram.send(
-        `🆕 New lead: ${lead.project_name} (score ${lead.score}/10)\nWhat: ${parsed.what_they_need ?? job.title}\nContact: ${toEmail ?? job.url}\nSource: ${job.source}`,
-      );
+      if (isWorthNotifying) {
+        await this.telegram.send(
+          `🆕 New lead: ${lead.project_name} (score ${lead.score}/10)\nWhat: ${parsed.what_they_need ?? job.title}\nContact: ${toEmail ?? job.url}\nSource: ${job.source}`,
+        );
+      }
     }
 
     return { scanned: jobs.length, matched: matches.length, processed: results.length, results };

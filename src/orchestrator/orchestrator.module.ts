@@ -5,10 +5,11 @@ import { XIntegrationModule } from '../x-integration/x-integration.module';
 import { SourcingModule } from '../sourcing/sourcing.module';
 import { OutreachModule } from '../outreach/outreach.module';
 import { MailModule } from '../mail/mail.module';
+import { TelegramModule } from '../telegram/telegram.module';
 import { OrchestratorController } from './orchestrator.controller';
 
 @Module({
-  imports: [ContentAgentModule, LeadGenAgentModule, XIntegrationModule, SourcingModule, OutreachModule, MailModule],
+  imports: [ContentAgentModule, LeadGenAgentModule, XIntegrationModule, SourcingModule, OutreachModule, MailModule, TelegramModule],
   controllers: [OrchestratorController],
 })
 export class OrchestratorModule {}

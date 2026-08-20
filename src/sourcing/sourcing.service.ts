@@ -34,6 +34,8 @@ const STACK_KEYWORDS = [
 const FREELANCE_URL = 'https://www.freelancer.com/api/projects/0.1/projects/active/';
 const FREELANCE_QUERY = 'website OR app OR mobile OR web development OR react';
 const FREELANCE_COUNTRIES = ['US', 'GB', 'CA', 'AU', 'DE', 'FR', 'NL', 'AE', 'SG'];
+const REMOTEOK_URL = 'https://remoteok.com/api';
+const WWR_URL = 'https://weworkremotely.com/categories/remote-programming-jobs.rss';
 
 @Injectable()
 export class SourcingService {
@@ -67,12 +69,13 @@ export class SourcingService {
           contact_path: `https://${c.domain}`,
           pitch_angle: parsed.pitch_angle ?? null,
           confidence: parsed.confidence ?? null,
+          buyer_type: parsed.buyer_type ?? null,
         })
         .select()
         .single();
       if (leadErr) throw new Error(`Lead insert failed: ${leadErr.message}`);
 
-      if (email) {
+      if (email && parsed.confidence === 'high') {
         const outRaw = await this.groq.complete(
           OUTREACH_PROMPT,
           `Company: ${c.project}\nDetails: ${text}\nFit notes from evaluation: ${parsed.fit ?? 'n/a'}`,
@@ -90,9 +93,10 @@ export class SourcingService {
       }
 
       const isWorthNotifying = (parsed.score ?? 0) >= 6;
+      const isHighConfidence = parsed.confidence === 'high';
       if (isWorthNotifying) {
         await this.telegram.send(
-          `🆕 Founder lead: ${lead.project_name} (score ${lead.score}/10)\nWhat: ${parsed.what_they_need ?? 'web/mobile development'}\nEmail: ${email ?? 'not published'}\nSite: https://${c.domain}`,
+          `🆕 Founder lead: ${lead.project_name} (score ${lead.score}/10)\nWhat: ${parsed.what_they_need ?? 'web/mobile development'}\nEmail: ${email ?? 'not published'}\nSite: https://${c.domain}\nConfidence: ${parsed.confidence ?? 'n/a'} | Type: ${parsed.buyer_type ?? 'unknown'}${isHighConfidence ? '' : '\n⚠️ REVIEW — not auto-sent (low/medium confidence)'}`,
         );
       }
 
@@ -134,6 +138,7 @@ export class SourcingService {
           contact_path: job.url,
           pitch_angle: parsed.pitch_angle ?? null,
           confidence: parsed.confidence ?? null,
+          buyer_type: parsed.buyer_type ?? null,
         })
         .select()
         .single();
@@ -141,8 +146,9 @@ export class SourcingService {
 
       let toEmail: string | null = null;
       const isBoard = job.source === 'jobs.solana.com';
+      const isHighConfidence = parsed.confidence === 'high';
       const isWorthNotifying = (parsed.score ?? 0) >= 6;
-      if (isBoard) {
+      if (isBoard && isHighConfidence) {
         const outRaw = await this.groq.complete(
           OUTREACH_PROMPT,
           `Job: ${job.title}\nCompany: ${job.company}\nDetails: ${text}\nFit notes from evaluation: ${parsed.fit ?? 'n/a'}`,
@@ -151,15 +157,17 @@ export class SourcingService {
 
         toEmail = await this.resolveCompanyEmail(job.url);
 
-        await this.supabase
-          .getClient()
-          .from('outreach')
-          .insert({
-            lead_id: lead.id,
-            subject: out.subject ?? '',
-            body: out.body ?? '',
-            to_email: toEmail ?? null,
-          });
+        if (toEmail) {
+          await this.supabase
+            .getClient()
+            .from('outreach')
+            .insert({
+              lead_id: lead.id,
+              subject: out.subject ?? '',
+              body: out.body ?? '',
+              to_email: toEmail,
+            });
+        }
       }
 
       await this.supabase
@@ -167,11 +175,11 @@ export class SourcingService {
         .from('scanned_jobs')
         .insert({ job_url: job.url });
 
-      results.push({ lead_id: lead.id, project: lead.project_name, score: lead.score, subject: isBoard ? 'drafted' : 'bid-on-platform', to_email: toEmail ?? null, source: job.source });
+      results.push({ lead_id: lead.id, project: lead.project_name, score: lead.score, subject: isBoard && isHighConfidence ? 'drafted' : 'review', to_email: toEmail ?? null, source: job.source, confidence: parsed.confidence ?? null, buyer_type: parsed.buyer_type ?? null });
 
       if (isWorthNotifying) {
         await this.telegram.send(
-          `🆕 New lead: ${lead.project_name} (score ${lead.score}/10)\nWhat: ${parsed.what_they_need ?? job.title}\nContact: ${toEmail ?? job.url}\nSource: ${job.source}`,
+          `🆕 New lead: ${lead.project_name} (score ${lead.score}/10)\nWhat: ${parsed.what_they_need ?? job.title}\nContact: ${toEmail ?? job.url}\nSource: ${job.source}\nConfidence: ${parsed.confidence ?? 'n/a'} | Type: ${parsed.buyer_type ?? 'unknown'}${isHighConfidence ? '' : '\n⚠️ REVIEW — not auto-sent (low/medium confidence)'}`,
         );
       }
     }
@@ -180,11 +188,52 @@ export class SourcingService {
   }
 
   private async fetchAllJobs(): Promise<any[]> {
-    const [boardJobs, freelanceJobs] = await Promise.all([
+    const [boardJobs, freelanceJobs, remoteokJobs, wwrJobs] = await Promise.all([
       this.fetchBoardJobs().catch(() => []),
       this.fetchFreelanceJobs().catch(() => []),
+      this.fetchRemoteOkJobs().catch(() => []),
+      this.fetchWwrJobs().catch(() => []),
     ]);
-    return [...boardJobs, ...freelanceJobs];
+    return [...boardJobs, ...freelanceJobs, ...remoteokJobs, ...wwrJobs];
+  }
+
+  private async fetchRemoteOkJobs(): Promise<any[]> {
+    const res = await fetch(REMOTEOK_URL, { headers: { 'User-Agent': 'Mozilla/5.0' } });
+    const body: any = await res.json();
+    if (!Array.isArray(body)) return [];
+    return body
+      .filter((j: any) => j && typeof j === 'object' && j.position)
+      .map((j: any) => ({
+        id: j.id ?? j.slug ?? j.position,
+        title: j.position ?? '',
+        company: j.company ?? 'Unknown',
+        url: j.url ?? '',
+        workMode: 'remote',
+        locations: (j.location ?? 'remote').split(',').map((s: string) => s.trim()).join(', '),
+        description: (j.description ?? '').replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 800),
+        source: 'remoteok.com',
+      }));
+  }
+
+  private async fetchWwrJobs(): Promise<any[]> {
+    const text = await fetch(WWR_URL, { headers: { 'User-Agent': 'Mozilla/5.0' } }).then((r) => r.text());
+    const items = [...text.matchAll(/<item>([\s\S]*?)<\/item>/g)].map((m) => m[1]);
+    return items.map((raw, i) => {
+      const tag = (name: string) => raw.match(new RegExp(`<${name}[^>]*>([\\s\\S]*?)<\\/${name}>`))?.[1]?.trim() ?? '';
+      const title = tag('title');
+      const link = tag('link');
+      const desc = tag('description').replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
+      return {
+        id: `wwr-${i}-${title}`,
+        title,
+        company: title.split(':')[0]?.trim() ?? 'Unknown',
+        url: link,
+        workMode: 'remote',
+        locations: 'remote',
+        description: desc.slice(0, 800),
+        source: 'weworkremotely.com',
+      };
+    });
   }
 
   private async fetchBoardJobs(): Promise<any[]> {
@@ -272,7 +321,7 @@ export class SourcingService {
   }
 
   private matchesStack(job: any): boolean {
-    const haystack = `${job.title} ${job.company}`.toLowerCase();
+    const haystack = `${job.title} ${job.company} ${job.description ?? ''}`.toLowerCase();
     return STACK_KEYWORDS.some((k) => haystack.includes(k));
   }
 

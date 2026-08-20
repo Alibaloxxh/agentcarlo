@@ -30,6 +30,7 @@ create table if not exists leads (
   contact_path text,
   pitch_angle text,
   confidence text,
+  buyer_type text,
   raw_text text,
   created_at timestamptz not null default now()
 );

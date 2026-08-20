@@ -36,12 +36,18 @@ Evaluate on:
 - Budget signal: does the ask imply a realistic budget?
 - Fit with Carlo's skillset: React Native, NestJS, FastAPI, Supabase, Claude/AI integration, website/web app/mobile app development
 - Red flags: no clear funding, anonymous team with no track record, unrealistic scope-for-budget asks
+- Buyer type: is this lead a company HIRING an employee ("employment"), or a client looking to OUTSOURCE/CONTRACT a build ("contract")? Mark "unknown" if the text does not make it clear.
 
 Never invent facts about the lead that are not in the text. If info is missing,
 say so in the relevant field.
 
+CRITICAL RULE ON CONFIDENCE:
+- confidence is "high" ONLY if the text gives enough concrete, verifiable information to judge the lead (named company, real role or project, budget or funding signals present).
+- If the text is thin, vague, or unverifiable (no company name, no scope, boilerplate), you MUST set confidence to "low" — do not inflate it.
+- A lead with confidence "low" must never get a fabricated score that looks reliable. Keep score but set confidence "low" honestly.
+
 OUTPUT — return ONLY a JSON object, no markdown, no commentary:
-{"score": 0, "project_name": "...", "what_they_need": "...", "legitimacy": "...", "budget_signal": "...", "fit": "...", "red_flags": "...", "contact_path": "...", "pitch_angle": "...", "confidence": "high|medium|low"}
+{"score": 0, "project_name": "...", "what_they_need": "...", "legitimacy": "...", "budget_signal": "...", "fit": "...", "red_flags": "...", "contact_path": "...", "pitch_angle": "...", "buyer_type": "employment|contract|unknown", "confidence": "high|medium|low"}
 - score is the overall 1-10 fit score.
 - confidence is low if the text gives too little information to judge.`;
 

@@ -40,6 +40,7 @@ export class LeadGenAgentService {
         contact_path: parsed.contact_path ?? null,
         pitch_angle: parsed.pitch_angle ?? null,
         confidence: parsed.confidence ?? null,
+        buyer_type: parsed.buyer_type ?? null,
       })
       .select()
       .single();

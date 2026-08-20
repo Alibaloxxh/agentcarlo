@@ -15,7 +15,7 @@ export class GroqService {
 
   async complete(system: string, user: string): Promise<string> {
     const res = await this.client.chat.completions.create({
-      model: 'llama-3.3-70b-versatile',
+      model: 'openai/gpt-oss-120b',
       temperature: 0.8,
       messages: [
         { role: 'system', content: system },

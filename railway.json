@@ -9,8 +9,14 @@
     "restartPolicyType": "ON_FAILURE",
     "restartPolicyMaxRetries": 10
   },
-  "cron": {
-    "schedule": "0 * * * *",
-    "command": "node scripts/scan-cron.js"
-  }
+  "cron": [
+    {
+      "schedule": "0 * * * *",
+      "command": "node scripts/scan-cron.js"
+    },
+    {
+      "schedule": "0 */6 * * *",
+      "command": "node scripts/hunt-cron.js"
+    }
+  ]
 }

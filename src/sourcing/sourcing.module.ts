@@ -4,10 +4,11 @@ import { CommonModule } from '../common/common.module';
 import { LeadGenAgentModule } from '../leadgen-agent/leadgen-agent.module';
 import { TelegramModule } from '../telegram/telegram.module';
 import { SourcingService } from './sourcing.service';
+import { SerperSearchService } from './serper-search.service';
 
 @Module({
   imports: [SupabaseModule, CommonModule, LeadGenAgentModule, TelegramModule],
-  providers: [SourcingService],
-  exports: [SourcingService],
+  providers: [SourcingService, SerperSearchService],
+  exports: [SourcingService, SerperSearchService],
 })
 export class SourcingModule {}

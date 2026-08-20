@@ -6,6 +6,7 @@ import { SourcingService } from '../sourcing/sourcing.service';
 import { OutreachService } from '../outreach/outreach.service';
 import { MailService } from '../mail/mail.service';
 import { TelegramService } from '../telegram/telegram.service';
+import { SerperSearchService } from '../sourcing/serper-search.service';
 
 @Controller('agent')
 export class OrchestratorController {
@@ -17,6 +18,7 @@ export class OrchestratorController {
     private readonly outreach: OutreachService,
     private readonly mail: MailService,
     private readonly telegram: TelegramService,
+    private readonly serper: SerperSearchService,
   ) {}
 
   @Post('draft')
@@ -47,6 +49,16 @@ export class OrchestratorController {
   @Post('hunt')
   async hunt(@Body() body: { companies: Array<{ project: string; domain: string; note?: string }> }) {
     return this.sourcing.hunt(body.companies ?? []);
+  }
+
+  @Post('hunt-search')
+  async huntSearch() {
+    return this.serper.run();
+  }
+
+  @Get('hunt-quota')
+  async huntQuota() {
+    return this.serper.quotaStatus();
   }
 
   @Get('smtp-test')

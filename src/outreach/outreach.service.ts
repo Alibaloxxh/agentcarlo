@@ -15,7 +15,7 @@ export class OutreachService {
     const { data, error } = await this.supabase
       .getClient()
       .from('outreach')
-      .select('*')
+      .select('*, leads(score)')
       .eq('status', 'draft')
       .not('to_email', 'is', null);
 
@@ -24,6 +24,11 @@ export class OutreachService {
 
     const results = [];
     for (const row of data) {
+      const score = row.leads?.score ?? 0;
+      if (score < 6) {
+        results.push({ id: row.id, to: row.to_email, status: 'skipped-low-score', score });
+        continue;
+      }
       try {
         await this.mail.send(row.to_email, row.subject, row.body);
         await this.supabase

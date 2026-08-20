@@ -28,7 +28,7 @@ async function tg(text) {
 async function main() {
   const { data, error } = await supabase
     .from('outreach')
-    .select('*')
+    .select('*, leads(score)')
     .eq('status', 'draft')
     .not('to_email', 'is', null);
 
@@ -39,6 +39,11 @@ async function main() {
   }
 
   for (const row of data) {
+    const score = row.leads?.score ?? 0;
+    if (score < 6) {
+      console.log(`SKIP ${row.to_email} (score ${score})`);
+      continue;
+    }
     try {
       await transporter.sendMail({
         from: process.env.GMAIL_USER,

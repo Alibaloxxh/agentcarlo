@@ -20,7 +20,20 @@ const STACK_KEYWORDS = [
   'typescript',
   'solana',
   'web3',
+  'website',
+  'web app',
+  'frontend',
+  'front-end',
+  'ios',
+  'android',
+  'flutter',
+  'landing page',
+  'ecommerce',
+  'e-commerce',
 ];
+const FREELANCE_URL = 'https://www.freelancer.com/api/projects/0.1/projects/active/';
+const FREELANCE_QUERY = 'website OR app OR mobile OR web development OR react';
+const FREELANCE_COUNTRIES = ['US', 'GB', 'CA', 'AU', 'DE', 'FR', 'NL', 'AE', 'SG'];
 
 @Injectable()
 export class SourcingService {
@@ -32,8 +45,7 @@ export class SourcingService {
   ) {}
 
   async scan(): Promise<any> {
-    const html = await fetch(SOURCE_URL).then((r) => r.text());
-    const jobs = this.extractJobs(html);
+    const jobs = await this.fetchAllJobs();
     const matches = jobs.filter((j) => this.matchesStack(j));
 
     const results = [];
@@ -47,13 +59,13 @@ export class SourcingService {
       if (dup.data) continue;
 
       const text = this.describe(job);
-      const parsed = await this.leadgen.scoreRaw('jobs.solana.com', text);
+      const parsed = await this.leadgen.scoreRaw(job.source, text);
 
       const { data: lead, error: leadErr } = await this.supabase
         .getClient()
         .from('leads')
         .insert({
-          source: 'jobs.solana.com',
+          source: job.source,
           raw_text: text,
           project_name: parsed.project_name ?? job.company,
           what_they_need: parsed.what_they_need ?? job.title,
@@ -70,37 +82,80 @@ export class SourcingService {
         .single();
       if (leadErr) throw new Error(`Lead insert failed: ${leadErr.message}`);
 
-      const outRaw = await this.groq.complete(
-        OUTREACH_PROMPT,
-        `Job: ${job.title}\nCompany: ${job.company}\nDetails: ${text}\nFit notes from evaluation: ${parsed.fit ?? 'n/a'}`,
-      );
-      const out = extractJson(outRaw);
+      let toEmail: string | null = null;
+      if (job.source === 'jobs.solana.com') {
+        const outRaw = await this.groq.complete(
+          OUTREACH_PROMPT,
+          `Job: ${job.title}\nCompany: ${job.company}\nDetails: ${text}\nFit notes from evaluation: ${parsed.fit ?? 'n/a'}`,
+        );
+        const out = extractJson(outRaw);
 
-      const toEmail = await this.resolveCompanyEmail(job.url);
+        toEmail = await this.resolveCompanyEmail(job.url);
 
-      await this.supabase
-        .getClient()
-        .from('outreach')
-        .insert({
-          lead_id: lead.id,
-          subject: out.subject ?? '',
-          body: out.body ?? '',
-          to_email: toEmail ?? null,
-        });
+        await this.supabase
+          .getClient()
+          .from('outreach')
+          .insert({
+            lead_id: lead.id,
+            subject: out.subject ?? '',
+            body: out.body ?? '',
+            to_email: toEmail ?? null,
+          });
+      }
 
       await this.supabase
         .getClient()
         .from('scanned_jobs')
         .insert({ job_url: job.url });
 
-      results.push({ lead_id: lead.id, project: lead.project_name, score: lead.score, subject: out.subject, to_email: toEmail ?? null });
+      results.push({ lead_id: lead.id, project: lead.project_name, score: lead.score, subject: job.source === 'jobs.solana.com' ? 'drafted' : 'bid-on-platform', to_email: toEmail ?? null, source: job.source });
 
       await this.telegram.send(
-        `🆕 New lead: ${lead.project_name} (score ${lead.score}/10)\nWhat: ${parsed.what_they_need ?? job.title}\nContact: ${toEmail ?? job.url}`,
+        `🆕 New lead: ${lead.project_name} (score ${lead.score}/10)\nWhat: ${parsed.what_they_need ?? job.title}\nContact: ${toEmail ?? job.url}\nSource: ${job.source}`,
       );
     }
 
     return { scanned: jobs.length, matched: matches.length, processed: results.length, results };
+  }
+
+  private async fetchAllJobs(): Promise<any[]> {
+    const [boardJobs, freelanceJobs] = await Promise.all([
+      this.fetchBoardJobs().catch(() => []),
+      this.fetchFreelanceJobs().catch(() => []),
+    ]);
+    return [...boardJobs, ...freelanceJobs];
+  }
+
+  private async fetchBoardJobs(): Promise<any[]> {
+    const html = await fetch(SOURCE_URL).then((r) => r.text());
+    const jobs = this.extractJobs(html);
+    return jobs.map((j) => ({ ...j, source: 'jobs.solana.com' }));
+  }
+
+  private async fetchFreelanceJobs(): Promise<any[]> {
+    const params = new URLSearchParams({
+      query: FREELANCE_QUERY,
+      limit: '50',
+      'compact': 'true',
+    });
+    for (const c of FREELANCE_COUNTRIES) params.append('countries[]', c);
+    const url = `${FREELANCE_URL}?${params.toString()}`;
+    const res = await fetch(url, { headers: { 'User-Agent': 'Mozilla/5.0' } });
+    const body: any = await res.json();
+    if (body.status !== 'success' || !body.result?.projects) return [];
+    return body.result.projects
+      .filter((p: any) => p.status === 'active')
+      .map((p: any) => ({
+        id: p.id,
+        title: p.title ?? '',
+        company: 'Freelancer.com client',
+        url: p.seo_url ? `https://www.freelancer.com/projects/${p.seo_url}` : `https://www.freelancer.com/projects/${p.id}`,
+        workMode: 'freelance',
+        locations: p.currency?.country ?? 'US/UK/international',
+        description: p.preview_description ?? '',
+        budget: p.budget ? `${p.budget.minimum}-${p.budget.maximum} ${p.currency?.code ?? ''}` : '',
+        source: 'freelancer.com',
+      }));
   }
 
   private async resolveCompanyEmail(jobUrl: string): Promise<string | null> {
@@ -145,6 +200,9 @@ export class SourcingService {
   }
 
   private describe(job: any): string {
-    return `Job: ${job.title} at ${job.company}. Mode: ${job.workMode}. Locations: ${job.locations}. Apply: ${job.url}`;
+    const base = `Job: ${job.title} at ${job.company}. Mode: ${job.workMode}. Locations: ${job.locations}. Apply: ${job.url}`;
+    const extra = job.description ? `\nDescription: ${job.description}` : '';
+    const budget = job.budget ? `\nBudget: ${job.budget}` : '';
+    return `${base}${extra}${budget}`;
   }
 }

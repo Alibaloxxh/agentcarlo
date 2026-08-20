@@ -108,7 +108,13 @@ export class SourcingService {
 
   async scan(): Promise<any> {
     const jobs = await this.fetchAllJobs();
-    const matches = jobs.filter((j) => this.matchesStack(j)).slice(0, 8);
+    const matched = jobs.filter((j) => this.matchesStack(j));
+    const { data: scanned } = await this.supabase
+      .getClient()
+      .from('scanned_jobs')
+      .select('job_url');
+    const scannedUrls = new Set((scanned ?? []).map((r: any) => r.job_url));
+    const matches = matched.filter((j) => !scannedUrls.has(j.url)).slice(0, 8);
 
     const results = [];
     for (const job of matches) {

@@ -49,6 +49,7 @@ export class SourcingService {
   async hunt(companies: Array<{ project: string; domain: string; note?: string }>): Promise<any> {
     const results = [];
     for (const c of companies) {
+      await this.pace();
       const email = await this.resolveDomainEmail(c.domain);
       const text = `Company: ${c.project}\nWebsite: https://${c.domain}\nContact email found: ${email ?? 'none published'}\nContext: ${c.note ?? 'Early-stage company needing web or mobile development.'}`;
       const parsed = await this.leadgen.scoreRaw('web-search', text);
@@ -107,10 +108,11 @@ export class SourcingService {
 
   async scan(): Promise<any> {
     const jobs = await this.fetchAllJobs();
-    const matches = jobs.filter((j) => this.matchesStack(j));
+    const matches = jobs.filter((j) => this.matchesStack(j)).slice(0, 8);
 
     const results = [];
     for (const job of matches) {
+      await this.pace();
       const dup = await this.supabase
         .getClient()
         .from('scanned_jobs')
@@ -185,6 +187,10 @@ export class SourcingService {
     }
 
     return { scanned: jobs.length, matched: matches.length, processed: results.length, results };
+  }
+
+  private async pace(): Promise<void> {
+    await new Promise((r) => setTimeout(r, 13000));
   }
 
   private async fetchAllJobs(): Promise<any[]> {

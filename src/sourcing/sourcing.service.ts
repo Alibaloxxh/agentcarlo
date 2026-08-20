@@ -327,8 +327,17 @@ export class SourcingService {
   }
 
   private matchesStack(job: any): boolean {
-    const haystack = `${job.title} ${job.company} ${job.description ?? ''}`.toLowerCase();
-    return STACK_KEYWORDS.some((k) => haystack.includes(k));
+    const title = `${job.title} ${job.company}`.toLowerCase();
+    const inTitle = STACK_KEYWORDS.some((k) => title.includes(k));
+    if (job.source === 'jobs.solana.com') {
+      const desc = `${job.title} ${job.company} ${job.description ?? ''}`.toLowerCase();
+      return STACK_KEYWORDS.some((k) => desc.includes(k));
+    }
+    if (job.source === 'freelancer.com') {
+      const desc = `${job.title} ${job.description ?? ''}`.toLowerCase();
+      return STACK_KEYWORDS.some((k) => desc.includes(k));
+    }
+    return inTitle;
   }
 
   private describe(job: any): string {

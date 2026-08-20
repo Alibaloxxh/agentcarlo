@@ -14,6 +14,7 @@ const STACK_KEYWORDS = [
   'full-stack',
   'fullstack',
   'mobile',
+  'backend',
   'react',
   'node',
   'typescript',

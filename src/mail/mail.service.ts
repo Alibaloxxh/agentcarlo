@@ -35,11 +35,17 @@ export class MailService {
   async diagnose(): Promise<string> {
     const net = await import('net');
     const results: string[] = [];
-    for (const port of [465, 587, 25]) {
+    const targets: Array<[string, number]> = [
+      ['smtp.gmail.com', 587],
+      ['smtp.gmail.com', 465],
+      ['smtp-relay.brevo.com', 587],
+      ['smtp.sendgrid.net', 587],
+    ];
+    for (const [host, port] of targets) {
       await new Promise<void>((resolve) => {
-        const s = net.connect(port, 'smtp.gmail.com');
+        const s = net.connect(port, host);
         let done = false;
-        const finish = (msg: string) => { if (!done) { done = true; results.push(`${port}: ${msg}`); s.destroy(); resolve(); } };
+        const finish = (msg: string) => { if (!done) { done = true; results.push(`${host}:${port} ${msg}`); s.destroy(); resolve(); } };
         s.on('connect', () => finish('CONNECT OK'));
         s.on('error', (e) => finish(`ERR ${e.message}`));
         s.setTimeout(8000, () => finish('TIMEOUT'));

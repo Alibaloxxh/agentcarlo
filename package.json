@@ -3,6 +3,9 @@
   "version": "1.0.0",
   "private": true,
   "description": "Carlo's Web3 brand agent — content drafting and lead generation",
+  "engines": {
+    "node": "22"
+  },
   "scripts": {
     "build": "tsc",
     "start": "node dist/main.js",

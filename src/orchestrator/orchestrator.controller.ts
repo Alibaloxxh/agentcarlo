@@ -5,6 +5,7 @@ import { XIntegrationService } from '../x-integration/x-integration.service';
 import { SourcingService } from '../sourcing/sourcing.service';
 import { OutreachService } from '../outreach/outreach.service';
 import { MailService } from '../mail/mail.service';
+import { TelegramService } from '../telegram/telegram.service';
 
 @Controller('agent')
 export class OrchestratorController {
@@ -15,6 +16,7 @@ export class OrchestratorController {
     private readonly sourcing: SourcingService,
     private readonly outreach: OutreachService,
     private readonly mail: MailService,
+    private readonly telegram: TelegramService,
   ) {}
 
   @Post('draft')
@@ -45,5 +47,10 @@ export class OrchestratorController {
   @Get('smtp-test')
   async smtpTest() {
     return this.mail.diagnose();
+  }
+
+  @Get('tg-test')
+  async tgTest() {
+    return { ok: await this.telegram.send('🔔 Test from AgentCarlo bot — notifications working!') };
   }
 }

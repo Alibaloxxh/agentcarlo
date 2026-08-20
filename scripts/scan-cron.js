@@ -1,9 +1,9 @@
 require('dotenv').config();
 
-const BASE = process.env.RAILWAY_PUBLIC_DOMAIN || 'http://localhost:8080';
+const BASE = (process.env.RAILWAY_PUBLIC_DOMAIN || 'http://localhost:8080').replace(/^https?:\/\//, '') + '';
 
 async function hit(path) {
-  const r = await fetch(`${BASE}${path}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' });
+  const r = await fetch(`https://${BASE}${path}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' });
   const text = await r.text();
   console.log(`${new Date().toISOString()} ${path} -> ${r.status} ${text.slice(0, 500)}`);
 }
